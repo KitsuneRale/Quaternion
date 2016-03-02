@@ -29,9 +29,8 @@
 
 UserListModel::UserListModel(QObject* parent)
     : QAbstractListModel(parent)
-{
-    m_currentRoom = nullptr;
-}
+    , m_currentRoom(nullptr)
+{ }
 
 UserListModel::~UserListModel()
 {

@@ -29,13 +29,11 @@
 
 RoomListModel::RoomListModel(QObject* parent)
     : QAbstractListModel(parent)
-{
-    m_connection = nullptr;
-}
+    , m_connection(nullptr)
+{ }
 
 RoomListModel::~RoomListModel()
-{
-}
+{ }
 
 void RoomListModel::setConnection(QMatrixClient::Connection* connection)
 {
