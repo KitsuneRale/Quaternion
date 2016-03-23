@@ -66,6 +66,8 @@ RoomListDock::RoomListDock(QWidget* parent)
     , connection(nullptr)
 {
     setObjectName("RoomsDock");
+    setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+
     model = new RoomListModel(this);
     view = new QListView();
     view->setModel(model);
