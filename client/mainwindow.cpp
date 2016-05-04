@@ -120,9 +120,12 @@ void MainWindow::connectionError(QString error)
 void MainWindow::closeEvent(QCloseEvent* event)
 {
     if (connection)
+    {
+        connection->disconnectFromServer();
         connection->disconnect( this ); // Disconnects all signals, not the connection itself
+    }
 
-    event->accept();
+    QMainWindow::closeEvent(event);
 }
 
 void MainWindow::showJoinRoomDialog()
