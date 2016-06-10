@@ -21,20 +21,10 @@
 #define IMAGEPROVIDER_H
 
 #include <QtQuick/QQuickImageProvider>
-#include <QtCore/QThread>
 #include <QtCore/QMutex>
 #include <QtCore/QWaitCondition>
 
 #include "quaternionconnection.h"
-
-class KJob;
-
-struct ImageProviderData
-{
-    QPixmap* pixmap;
-    QWaitCondition* condition;
-    QSize requestedSize;
-};
 
 class ImageProvider: public QObject, public QQuickImageProvider
 {
@@ -46,14 +36,10 @@ class ImageProvider: public QObject, public QQuickImageProvider
 
         void setConnection(QMatrixClient::Connection* connection);
 
-    private slots:
-        void gotImage(KJob* job);
-
     private:
         Q_INVOKABLE void doRequest(QString id, QSize requestedSize, QPixmap* pixmap, QWaitCondition* condition);
 
         QMatrixClient::Connection* m_connection;
-        QHash<QMatrixClient::MediaThumbnailJob*, ImageProviderData> m_callmap;
         QMutex m_mutex;
 };
 

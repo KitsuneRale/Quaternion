@@ -18,13 +18,11 @@
  **************************************************************************/
 
 #include "imageprovider.h"
-#include <jobs/mediathumbnailjob.h>
 
-#include <QtCore/QMutex>
+#include <serverapi/getmediathumbnail.h>
+
 #include <QtCore/QMutexLocker>
-#include <QtCore/QWaitCondition>
-
-
+#include <QtCore/QDebug>
 
 ImageProvider::ImageProvider(QMatrixClient::Connection* connection)
     : QQuickImageProvider(QQmlImageProviderBase::Pixmap, QQmlImageProviderBase::ForceAsynchronousImageLoading)
@@ -45,13 +43,12 @@ QPixmap ImageProvider::requestPixmap(const QString& id, QSize* size, const QSize
         return QPixmap();
     }
 
-    QWaitCondition* condition = new QWaitCondition();
+    QWaitCondition condition;
     QPixmap result;
     QMetaObject::invokeMethod(this, "doRequest", Qt::QueuedConnection,
                               Q_ARG(QString, id), Q_ARG(QSize, requestedSize),
-                              Q_ARG(QPixmap*, &result), Q_ARG(QWaitCondition*, condition));
-    condition->wait(&m_mutex);
-    delete condition;
+                              Q_ARG(QPixmap*, &result), Q_ARG(QWaitCondition*, &condition));
+    condition.wait(&m_mutex); // TODO: Add a timeout
 
     if( size != nullptr )
     {
@@ -67,26 +64,30 @@ void ImageProvider::setConnection(QMatrixClient::Connection* connection)
     m_connection = connection;
 }
 
+inline int checkSize(int size, int defaultSize)
+{
+    return size > 0 ? size : defaultSize;
+}
+
 void ImageProvider::doRequest(QString id, QSize requestedSize, QPixmap* pixmap, QWaitCondition* condition)
 {
     QMutexLocker locker(&m_mutex);
 
-    int width = requestedSize.width() > 0 ? requestedSize.width() : 100;
-    int height = requestedSize.height() > 0 ? requestedSize.height() : 100;
+    using namespace QMatrixClient;
+    m_connection
+        ->callServer(GetMediaThumbnail
+                     ( QUrl(id)
+                     , checkSize(requestedSize.width(), 100)
+                     , checkSize(requestedSize.height(), 100)
+                     ))
+        ->onSuccess([=](const GetMediaThumbnail& data)
+        {
+            // onSuccess() will be called asynchronously, after doRequest
+            // finishes; no deadlock here
+            QMutexLocker locker(&m_mutex);
+            qDebug() << "gotImage from" << data.requestParams().apiPath();
 
-    QMatrixClient::MediaThumbnailJob* job = m_connection->getThumbnail(QUrl(id), width, height);
-    QObject::connect( job, &QMatrixClient::MediaThumbnailJob::success, this, &ImageProvider::gotImage );
-    ImageProviderData data = { pixmap, condition, requestedSize };
-    m_callmap.insert(job, data);
-}
-
-void ImageProvider::gotImage(KJob* job)
-{
-    QMutexLocker locker(&m_mutex);
-    qDebug() << "gotImage";
-
-    auto mediaJob = static_cast<QMatrixClient::MediaThumbnailJob*>(job);
-    ImageProviderData data = m_callmap.take(mediaJob);
-    *data.pixmap = mediaJob->thumbnail().scaled(data.requestedSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    data.condition->wakeAll();
+            *pixmap = data.thumbnail.scaled(requestedSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            condition->wakeAll();
+        });
 }
