@@ -73,7 +73,7 @@ void ImageProvider::doRequest(QString id, QSize requestedSize, QPixmap* pixmap, 
 {
     QMutexLocker locker(&m_mutex);
 
-    using namespace QMatrixClient;
+    using namespace QMatrixClient::ServerApi;
     m_connection
         ->callServer(GetMediaThumbnail
                      ( QUrl(id)
